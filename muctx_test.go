@@ -17,7 +17,7 @@ func TestLock(t *testing.T) {
 	if comutex.Status(ctx, mu) > comutex.Unlocked {
 		t.Errorf("Expected fresh mutext to be unlocked")
 	}
-	assertMutMockEql(t, mutMock{}, mu)
+	assertMutMockEql(t, mutState{}, mu)
 	ctx, unlock, err := comutex.Lock(ctx, mu)
 	assertNilErr(t, err)
 	defer func() {
@@ -28,12 +28,12 @@ func TestLock(t *testing.T) {
 		if originalCtx != unlockedCtx {
 			t.Errorf("unlock should return original context")
 		}
-		assertMutMockEql(t, mutMock{1, 1, 0, 0}, mu)
+		assertMutMockEql(t, mutState{1, 1, 0, 0}, mu)
 	}()
 	if comutex.Status(ctx, mu) == comutex.Unlocked {
 		t.Errorf("Expected mutex to be locked")
 	}
-	assertMutMockEql(t, mutMock{1, 0, 0, 0}, mu)
+	assertMutMockEql(t, mutState{1, 0, 0, 0}, mu)
 
 	func(ctx context.Context) {
 		ctx2, unlock2, err := comutex.Lock(ctx, mu)
@@ -42,12 +42,12 @@ func TestLock(t *testing.T) {
 			if !isLocked(unlock2(), mu) {
 				t.Errorf("Nested mutex must remain locked after unlock")
 			}
-			assertMutMockEql(t, mutMock{1, 0, 0, 0}, mu)
+			assertMutMockEql(t, mutState{1, 0, 0, 0}, mu)
 		}()
 		if comutex.Status(ctx2, mu) == comutex.Unlocked {
 			t.Errorf("Expected mutex to be locked")
 		}
-		assertMutMockEql(t, mutMock{1, 0, 0, 0}, mu)
+		assertMutMockEql(t, mutState{1, 0, 0, 0}, mu)
 
 		func(ctx context.Context) {
 			ctx3, unlock3, err := comutex.Lock(ctx, mu)
@@ -56,12 +56,12 @@ func TestLock(t *testing.T) {
 				if !isLocked(unlock3(), mu) {
 					t.Errorf("Nested mutex must remain locked after unlock")
 				}
-				assertMutMockEql(t, mutMock{1, 0, 0, 0}, mu)
+				assertMutMockEql(t, mutState{1, 0, 0, 0}, mu)
 			}()
 			if comutex.Status(ctx3, mu) == comutex.Unlocked {
 				t.Errorf("Expected mutex to be locked")
 			}
-			assertMutMockEql(t, mutMock{1, 0, 0, 0}, mu)
+			assertMutMockEql(t, mutState{1, 0, 0, 0}, mu)
 		}(ctx2)
 	}(ctx)
 }
@@ -95,23 +95,27 @@ func TestWithStatusUnlocked(t *testing.T) {
 	if comutex.Status(ctx, mu) != comutex.Locked {
 		t.Error("status must be locked")
 	}
-	assertMutMockEql(t, mutMock{1, 0, 0, 0}, mu)
+	assertMutMockEql(t, mutState{1, 0, 0, 0}, mu)
 	sctx := comutex.WithStatusUnlocked(ctx, mu)
 	if comutex.Status(sctx, mu) != comutex.Unlocked {
 		t.Error("status must be unlocked")
 	}
-	assertMutMockEql(t, mutMock{1, 0, 0, 0}, mu)
+	assertMutMockEql(t, mutState{1, 0, 0, 0}, mu)
 }
 
 func isLocked(ctx context.Context, mu sync.Locker) bool {
 	return comutex.Status(ctx, mu) > comutex.Unlocked
 }
 
-type mutMock struct {
+type mutState struct {
 	locked    int
 	unlocked  int
 	rlocked   int
 	runlocked int
+}
+
+type mutMock struct {
+	mutState
 }
 
 func (ml *mutMock) Lock() {
@@ -129,8 +133,8 @@ func (ml *mutMock) RUnlock() {
 	ml.runlocked++
 }
 
-func assertMutMockEql(t *testing.T, expect mutMock, actual *mutMock) {
-	if expect != *actual {
+func assertMutMockEql(t *testing.T, expect mutState, actual *mutMock) {
+	if expect != actual.mutState {
 		t.Errorf("expected %#v, got %#v", expect, actual)
 	}
 }
