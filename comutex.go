@@ -90,7 +90,7 @@ func RLock(ctx context.Context, mu RWLocker) (lockedCtx context.Context, unlock 
 
 // WithStatusUnlocked returns "unlocked" context, but does not actually call Unlock on mutex.
 // That is, calling Status(ctx) on retuned context will return Unlocked.
-// Useful when you are passing locked context to a goroutine.
+// Useful when you need to pass locked context to a goroutine.
 func WithStatusUnlocked(ctx context.Context, mu sync.Locker) context.Context {
 	return withMutex(ctx, mu, Unlocked)
 }
