@@ -1,6 +1,8 @@
-// This package allows to use functional composition with mutexes.
-// TODO: rename to loctx
-package muctx
+// Package comutex: Context + Mutex = Comutex.
+// Main purpose of this package is to allow nested calls
+// of functions that lock same mutex.
+// Bot Mutex and RWMutex are supported.
+package comutex
 
 import (
 	"context"
@@ -8,20 +10,22 @@ import (
 	"sync"
 )
 
-// UnlockFn unlocks mutex and returns stripped context if it's top-level.
-// If it isn't top-level, it just returns original context.
+// UnlockFn unlocks mutex and returns original context if it's top-level,
+// otherwise it just returns original context (the one passed to Lock, MustLock or RLock).
 type UnlockFn func() context.Context
 
+// RWLocker is compatible with sync.RWMutex
 type RWLocker interface {
 	sync.Locker
 	RLock()
 	RUnlock()
 }
 
-// ErrLockUpgrade is returned on attempt to Lock()
-// RWMutex that is already locked with RLock.
-var ErrLockUpgrade = errors.New("mutex is already locked using RLock")
+// ErrLockUpgrade is returned on attempt to Lock() rwmutex
+// that is already locked with RLock.
+var ErrLockUpgrade = errors.New("can't Lock() - mutex is already locked using RLock")
 
+// LockStatus is either "unlocked", "locked", or "locked with RLock"
 type LockStatus uint32
 
 // Mutex lock statuses
@@ -49,9 +53,10 @@ func Status(ctx context.Context, mu sync.Locker) LockStatus {
 	return v
 }
 
-// Lock actually locks mutex if given context is not "locked" already, and returns "locked" context.
-// If given context is already "locked", it returns it alongside with no-op unlock.
-// If mutex is a RWMutex and is already locked with Rlock, it will return ErrLockUpgrade error.
+// Lock locks given mutex and returns "locked" context with unlock function.
+// If given context is already "locked" (e.g. Status(ctx) != Unlocked) one of two things possible:
+// - if Status(ctx) is Locked - it returns same context with no-op unlock function.
+// - if Status(ctx) is RLocked - same as above with ErrLockUpgrade
 func Lock(ctx context.Context, mu sync.Locker) (context.Context, UnlockFn, error) {
 	if status := Status(ctx, mu); status > Unlocked {
 		if status != Locked {
@@ -63,9 +68,7 @@ func Lock(ctx context.Context, mu sync.Locker) (context.Context, UnlockFn, error
 	return withMutex(ctx, mu, Locked), wrapUnlock(ctx, mu, mu.Unlock), nil
 }
 
-// MustLock actually locks mutex if given context is not "locked" already, and returns "locked" context.
-// If given context is already "locked", it returns it alongside with no-op unlock.
-// If mutex is a RWMutex and is already locked with Rlock, it will panic.
+// MustLock is same as Lock, but instead of returning an error it'll panic.
 func MustLock(ctx context.Context, mu sync.Locker) (lockedCtx context.Context, unlock UnlockFn) {
 	ctx, unlock, err := Lock(ctx, mu)
 	if err != nil {
@@ -74,8 +77,9 @@ func MustLock(ctx context.Context, mu sync.Locker) (lockedCtx context.Context, u
 	return ctx, unlock
 }
 
-// RLock actually locks RW mutex for reading only if given context is not "locked" already, and returns "locked" context.
-// If given context is already "locked", it returns it alongside with no-op unlock.
+// RLock locks given mutex with RLock and returns "locked" context with unlock function.
+// If given context is already "locked" (e.g. Status(ctx) != Unlocked),
+// it returns same context with no-op unlock function (even if mutex was locked with Lock()).
 func RLock(ctx context.Context, mu RWLocker) (lockedCtx context.Context, unlock UnlockFn) {
 	if Status(ctx, mu) > Unlocked {
 		return ctx, noop(ctx)

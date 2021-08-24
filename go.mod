@@ -1,3 +1,3 @@
-module github.com/josephbuchma/muctx
+module github.com/josephbuchma/comutex
 
 go 1.16
