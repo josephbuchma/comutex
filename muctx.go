@@ -84,9 +84,10 @@ func RLock(ctx context.Context, mu RWLocker) (lockedCtx context.Context, unlock 
 	return withMutex(ctx, mu, RLocked), wrapUnlock(ctx, mu, mu.RUnlock)
 }
 
-// Strip returns "unlocked" context, but does not actually call Unlock on mutex.
+// WithStatusUnlocked returns "unlocked" context, but does not actually call Unlock on mutex.
+// That is, calling Status(ctx) on retuned context will return Unlocked.
 // Useful when you are passing locked context to a goroutine.
-func Strip(ctx context.Context, mu sync.Locker) context.Context {
+func WithStatusUnlocked(ctx context.Context, mu sync.Locker) context.Context {
 	return withMutex(ctx, mu, Unlocked)
 }
 

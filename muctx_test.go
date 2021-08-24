@@ -87,19 +87,20 @@ func TestErrLockUpgrade(t *testing.T) {
 	}()
 }
 
-func TestStrip(t *testing.T) {
+func TestWithStatusUnlocked(t *testing.T) {
 	ctx := context.Background()
 	mu := &mutMock{}
 
 	ctx, _ = muctx.MustLock(ctx, mu)
-	assertMutMockEql(t, mutMock{1, 0, 0, 0}, mu)
-	sctx := muctx.Strip(ctx, mu)
-	if muctx.Status(sctx, mu) != muctx.Unlocked {
-		t.Error("status must be unlocked")
-	}
 	if muctx.Status(ctx, mu) != muctx.Locked {
 		t.Error("status must be locked")
 	}
+	assertMutMockEql(t, mutMock{1, 0, 0, 0}, mu)
+	sctx := muctx.WithStatusUnlocked(ctx, mu)
+	if muctx.Status(sctx, mu) != muctx.Unlocked {
+		t.Error("status must be unlocked")
+	}
+	assertMutMockEql(t, mutMock{1, 0, 0, 0}, mu)
 }
 
 func isLocked(ctx context.Context, mu sync.Locker) bool {
