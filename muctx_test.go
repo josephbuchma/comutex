@@ -2,6 +2,7 @@ package muctx_test
 
 import (
 	"context"
+	"sync"
 	"testing"
 
 	"github.com/josephbuchma/muctx"
@@ -12,6 +13,7 @@ var _ muctx.RWLocker = &mutMock{}
 func TestLock(t *testing.T) {
 	mu := &mutMock{}
 	ctx := context.Background()
+	originalCtx := ctx
 	if muctx.Status(ctx, mu) > muctx.Unlocked {
 		t.Errorf("Expected fresh mutext to be unlocked")
 	}
@@ -19,9 +21,12 @@ func TestLock(t *testing.T) {
 	ctx, unlock, err := muctx.Lock(ctx, mu)
 	assertNilErr(t, err)
 	defer func() {
-		ok := unlock()
-		if !ok {
-			t.Errorf("Top level mutex unlock should return true")
+		unlockedCtx := unlock()
+		if isLocked(unlockedCtx, mu) {
+			t.Errorf("Top level mutex unlock must unlock")
+		}
+		if originalCtx != unlockedCtx {
+			t.Errorf("unlock should return original context")
 		}
 		assertMutMockEql(t, mutMock{1, 1, 0, 0}, mu)
 	}()
@@ -34,9 +39,8 @@ func TestLock(t *testing.T) {
 		ctx2, unlock2, err := muctx.Lock(ctx, mu)
 		assertNilErr(t, err)
 		defer func() {
-			ok := unlock2()
-			if ok {
-				t.Errorf("Top level mutex unlock should return false")
+			if !isLocked(unlock2(), mu) {
+				t.Errorf("Nested mutex must remain locked after unlock")
 			}
 			assertMutMockEql(t, mutMock{1, 0, 0, 0}, mu)
 		}()
@@ -49,9 +53,8 @@ func TestLock(t *testing.T) {
 			ctx3, unlock3, err := muctx.Lock(ctx, mu)
 			assertNilErr(t, err)
 			defer func() {
-				ok := unlock3()
-				if ok {
-					t.Errorf("Top level mutex unlock should return false")
+				if !isLocked(unlock3(), mu) {
+					t.Errorf("Nested mutex must remain locked after unlock")
 				}
 				assertMutMockEql(t, mutMock{1, 0, 0, 0}, mu)
 			}()
@@ -97,6 +100,10 @@ func TestStrip(t *testing.T) {
 	if muctx.Status(ctx, mu) != muctx.Locked {
 		t.Error("status must be locked")
 	}
+}
+
+func isLocked(ctx context.Context, mu sync.Locker) bool {
+	return muctx.Status(ctx, mu) > muctx.Unlocked
 }
 
 type mutMock struct {

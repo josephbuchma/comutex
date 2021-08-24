@@ -8,8 +8,9 @@ import (
 	"sync"
 )
 
-// UnlockFn returns true if mutex has been unlocked.
-type UnlockFn func() (unlocked bool)
+// UnlockFn unlocks mutex and returns stripped context if it's top-level.
+// If it isn't top-level, it just returns original context.
+type UnlockFn func() context.Context
 
 type RWLocker interface {
 	sync.Locker
@@ -54,12 +55,12 @@ func Status(ctx context.Context, mu sync.Locker) LockStatus {
 func Lock(ctx context.Context, mu sync.Locker) (context.Context, UnlockFn, error) {
 	if status := Status(ctx, mu); status > Unlocked {
 		if status != Locked {
-			return ctx, noop, ErrLockUpgrade
+			return ctx, noop(ctx), ErrLockUpgrade
 		}
-		return ctx, noop, nil
+		return ctx, noop(ctx), nil
 	}
 	mu.Lock()
-	return withMutex(ctx, mu, Locked), wrapUnlock(mu.Unlock), nil
+	return withMutex(ctx, mu, Locked), wrapUnlock(ctx, mu, mu.Unlock), nil
 }
 
 // MustLock actually locks mutex if given context is not "locked" already, and returns "locked" context.
@@ -77,10 +78,10 @@ func MustLock(ctx context.Context, mu sync.Locker) (lockedCtx context.Context, u
 // If given context is already "locked", it returns it alongside with no-op unlock.
 func RLock(ctx context.Context, mu RWLocker) (lockedCtx context.Context, unlock UnlockFn) {
 	if Status(ctx, mu) > Unlocked {
-		return ctx, noop
+		return ctx, noop(ctx)
 	}
 	mu.RLock()
-	return withMutex(ctx, mu, RLocked), wrapUnlock(mu.RUnlock)
+	return withMutex(ctx, mu, RLocked), wrapUnlock(ctx, mu, mu.RUnlock)
 }
 
 // Strip returns "unlocked" context, but does not actually call Unlock on mutex.
@@ -89,10 +90,10 @@ func Strip(ctx context.Context, mu sync.Locker) context.Context {
 	return withMutex(ctx, mu, Unlocked)
 }
 
-func wrapUnlock(unlock func()) func() bool {
-	return func() bool {
+func wrapUnlock(ctx context.Context, mu sync.Locker, unlock func()) UnlockFn {
+	return func() context.Context {
 		unlock()
-		return true
+		return ctx
 	}
 }
 
@@ -100,6 +101,8 @@ func withMutex(ctx context.Context, key sync.Locker, ls LockStatus) context.Cont
 	return context.WithValue(ctx, key, ls)
 }
 
-func noop() bool {
-	return false
+func noop(ctx context.Context) UnlockFn {
+	return func() context.Context {
+		return ctx
+	}
 }
