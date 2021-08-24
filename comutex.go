@@ -1,7 +1,8 @@
-// Package comutex: Context + Mutex = Comutex.
-// Main purpose of this package is to allow nested calls
-// of functions that lock same mutex in same thread/goroutine.
-// Bot Mutex and RWMutex are supported.
+// Package comutex allows nested calls
+// of functions that lock same mutex in the same thread/goroutine
+// with a help of context.Context.
+// Both Mutex and RWMutex are supported.
+// [Context + Mutex = Comutex]
 package comutex
 
 import (
