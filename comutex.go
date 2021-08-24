@@ -69,7 +69,7 @@ func Lock(ctx context.Context, mu sync.Locker) (context.Context, UnlockFn, error
 }
 
 // MustLock is same as Lock, but instead of returning an error it'll panic.
-func MustLock(ctx context.Context, mu sync.Locker) (lockedCtx context.Context, unlock UnlockFn) {
+func MustLock(ctx context.Context, mu sync.Locker) (context.Context, UnlockFn) {
 	ctx, unlock, err := Lock(ctx, mu)
 	if err != nil {
 		panic(err)
@@ -80,7 +80,7 @@ func MustLock(ctx context.Context, mu sync.Locker) (lockedCtx context.Context, u
 // RLock locks given mutex with RLock and returns "locked" context with unlock function.
 // If given context is already "locked" (e.g. Status(ctx) != Unlocked),
 // it returns same context with no-op unlock function (even if mutex was locked with Lock()).
-func RLock(ctx context.Context, mu RWLocker) (lockedCtx context.Context, unlock UnlockFn) {
+func RLock(ctx context.Context, mu RWLocker) (context.Context, UnlockFn) {
 	if Status(ctx, mu) > Unlocked {
 		return ctx, noop(ctx)
 	}
