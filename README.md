@@ -1,5 +1,5 @@
 
-# comutex [![Go Report Card](https://goreportcard.com/badge/github.com/josephbuchma/comutex)](https://goreportcard.com/badge/github.com/josephbuchma/comutex) 
+# comutex [![Go Report Card](https://goreportcard.com/badge/github.com/josephbuchma/comutex)](https://goreportcard.com/badge/github.com/josephbuchma/comutex) [![Go Reference](https://pkg.go.dev/badge/github.com/josephbuchma/comutex.svg)](https://pkg.go.dev/github.com/josephbuchma/comutex)
 
 > Context + Mutex = Comutex
 
